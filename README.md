@@ -15,7 +15,7 @@ devtools::install_github("jmorys/RainbowGraph")
 # keras::install_keras(version = "cpu")
 
 # to check package functionality run
-test_result - RainbowGraph::test_functionality()
+test_result <- RainbowGraph::test_functionality()
 
 # this runs the get_complete_results_bayes function, which performs all steps of regeneration characteristics prediction, on a test_graph supplied in package.
 # running this function is times consuming and will take several minutes
