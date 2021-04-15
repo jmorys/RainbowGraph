@@ -332,7 +332,7 @@ create_b_model <- function(combined_frame, output = "surv", transformation = NUL
   # sample size (training data)
   n_train <- length(indexes_n_val)
   # prior length-scale
-  l <- 1e-4
+  l <- 1e-2
   # initial value for weight regularizer
   wd <- l^2/n_train
   # initial value for dropout regularizer
@@ -389,7 +389,7 @@ create_b_model <- function(combined_frame, output = "surv", transformation = NUL
 
   history <- model %>% keras::fit(x = xtrain, y = ytrain, epochs = 500, verbose = 0, validation_data = list(xval, yval),
                                   callbacks = list(
-                                    keras::callback_early_stopping(patience = 70, restore_best_weights = F),
+                                    keras::callback_early_stopping(patience = 70, restore_best_weights = T),
                                     keras::callback_reduce_lr_on_plateau(factor = 0.4))
   )
   return( list(model = model, history = history, train_n_val_indexes = indexes, train_indexes = indexes_n_val))
@@ -546,7 +546,7 @@ preprocess_simulation <- function(simmulation_data, init_size){
 #' @param with_push implement repulsing force in simulation?
 #' @param alpha damping factor/factors
 #'
-#' @return returns list containing predictions, intermediate data, models and their evaluation
+#' @return returns list containing predictions, intermediate data, models and their evaluation. Prediction for expansion is square root of actual value due to improved prediction.
 #' @export
 get_complete_results_bayes <- function(graph, survival_intervals = c(0.5, 1), rel_expansion_intervals = c(0,1),
                                        with_push = T, alpha = c(0.4, 0.7),
@@ -564,10 +564,11 @@ get_complete_results_bayes <- function(graph, survival_intervals = c(0.5, 1), re
     # simulation for survival
     set.seed(42)
     survivor_fraction <- stats::runif(dsize_surv, survival_intervals[1], survival_intervals[2])
+    survivor_fraction[survivor_fraction > 1] <- 1
     set.seed(43)
     expanding_fraction <-  stats::runif(dsize_surv, rel_expansion_intervals[1], rel_expansion_intervals[2])
     expanding_fraction <- (1 - survivor_fraction)*1.1*expanding_fraction/survivor_fraction
-    expanding_fraction[expanding_fraction > 0.95] <- 0.95
+    expanding_fraction[expanding_fraction > 1] <- 1
     sim_params <- cbind(survivor_fraction, expanding_fraction)
     set.seed(123)
     res_surv <- generate_data_fast(graph, sim_params, alpha = alpha, n_try = 1, with_push = with_push)

@@ -4,8 +4,7 @@ Title: What the Package Does (Title Case)
 Version: 0.1.0
 Author: Jan Morys
 Maintainer: Jan Morys <jan.morys98@gmail.com>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: Package for predicting characteristics of regeneration for graph data of random colour Cre Loxp lineage tracing methods.
 Imports: dplyr, magrittr, tibble, tidyr, igraph, ggplot2, R6, purrr, keras, foreach, doParallel, iterators, moments, stats, reticulate
 License: What license is it under?
 Encoding: UTF-8

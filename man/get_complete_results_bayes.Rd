@@ -26,7 +26,7 @@ get_complete_results_bayes(
 \item{alpha}{damping factor/factors}
 }
 \value{
-returns list containing predictions, intermediate data, models and their evaluation
+returns list containing predictions, intermediate data, models and their evaluation. Prediction for expansion is square root of actual value due to improved prediction.
 }
 \description{
 Predict regeneration for a given graph

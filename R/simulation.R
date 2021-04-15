@@ -121,6 +121,7 @@ simulate_expansion_of_fraction_cheap <- function(graph, survivor_fraction=0.3, e
       continue <- dim(substitution)[1] > 0
     }
     non_exp <- which(non_expanding_update)
+    survivors <- non_expanding_update | originz
   }
 
 
