@@ -5,17 +5,17 @@ Provides tools for simulating regeneration on a given structure, creation of mac
 
 ``` r
 # package installation
-# install.packages(devtools)
-devtools::install_github(jmorysRainbowGraph)
+# install.packages("devtools")
+devtools::install_github("jmorys/RainbowGraph")
 
 # This package relies on an R interface to Keras and Tensorflow, and as such those tools have to be installed.
 # this can be achieved by running
-# Keras::install_keras()
+# keras::install_keras()
 # contrary to documentation keras may attempt to install gpu version. If it causes problems during installation try
-# Keras::install_keras(version = cpu)
+# keras::install_keras(version = "cpu")
 
 # to check package functionality run
-test_result - RainbowGraph::test_functionality()
+test_result <- RainbowGraph::test_functionality()
 
 # this runs the get_complete_results_bayes function, which performs all steps of regeneration characteristics prediction, on a test_graph supplied in package.
 # running this function is times consuming and will take several minutes
