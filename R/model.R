@@ -291,54 +291,23 @@ layer_concrete_dropout <- function(object,
 
 
 
-
-
-
-
-#' Create neural network with estimation of uncertainty through dropout
+#' Create model
 #'
-#' @param combined_frame
-#' @param output predicted value, one of "surv", "pseudo_eras", "expan"
-#' @param transformation mathematical transformation applied to predicted value (function)
+#' @param n_train
+#' @param input_dim
 #'
+#' @return
 #' @export
 #'
-create_b_model <- function(combined_frame, output = "surv", transformation = NULL) {
-  indexes = sample(1:dim(combined_frame)[1], size = round(dim(combined_frame)[1]*0.85))
-  predictors <- as.data.frame(combined_frame %>% dplyr::select(-surv, -pseudo_eras, -expan))
-  predictors <- as.matrix(predictors)
-
-  if (is.null(transformation)) {
-    target <- as.matrix(combined_frame[output] , ncol = 1)
-  }else{
-    target <- as.matrix(transformation(combined_frame[output]) , ncol = 1)
-
-  }
+model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1){
 
 
-  xtrain = predictors[indexes,]
-  indexes_n_val = sample(1:length(indexes), size = round(length(indexes)*0.85))
-  xval = xtrain[-indexes_n_val,]
-  xtrain = xtrain[indexes_n_val,]
-
-  xtest = predictors[-indexes,]
-
-  ytrain = target[indexes]
-  yval = ytrain[-indexes_n_val]
-  ytrain = ytrain[indexes_n_val]
-  ytest = target[-indexes]
-
-
-  # sample size (training data)
-  n_train <- length(indexes_n_val)
   # prior length-scale
   l <- 1e-2
   # initial value for weight regularizer
   wd <- l^2/n_train
   # initial value for dropout regularizer
   dd <- 2/n_train
-  input_dim <- dim(predictors)[2]
-  output_dim <- 1
   # bayesian dropout model
   input <- keras::layer_input(shape = input_dim)
   output <- input %>% layer_concrete_dropout(
@@ -384,12 +353,61 @@ create_b_model <- function(combined_frame, output = "surv", transformation = NUL
     loss = heteroscedastic_loss,
     metrics = c(keras::custom_metric("heteroscedastic_loss", heteroscedastic_loss))
   )
+  model
+}
 
 
+
+
+
+
+
+#' Create neural network with estimation of uncertainty through dropout
+#'
+#' @param combined_frame
+#' @param output predicted value, one of "surv", "pseudo_eras", "expan"
+#' @param transformation mathematical transformation applied to predicted value (function)
+#'
+#' @export
+#'
+create_b_model <- function(combined_frame, output = "surv", transformation = NULL) {
+  indexes = sample(1:dim(combined_frame)[1], size = round(dim(combined_frame)[1]*0.85))
+  predictors <- as.data.frame(combined_frame %>% dplyr::select(-surv, -pseudo_eras, -expan))
+  predictors <- as.matrix(predictors)
+
+  if (is.null(transformation)) {
+    target <- as.matrix(combined_frame[output] , ncol = 1)
+  }else{
+    target <- as.matrix(transformation(combined_frame[output]) , ncol = 1)
+
+  }
+
+
+  xtrain = predictors[indexes,]
+  indexes_n_val = sample(1:length(indexes), size = round(length(indexes)*0.85))
+  xval = xtrain[-indexes_n_val,]
+  xtrain = xtrain[indexes_n_val,]
+
+  xtest = predictors[-indexes,]
+
+  ytrain = target[indexes]
+  yval = ytrain[-indexes_n_val]
+  ytrain = ytrain[indexes_n_val]
+  ytest = target[-indexes]
+
+
+  # sample size (training data)
+  n_train <- length(indexes_n_val)
+  # prior length-scale
+  input_dim <- dim(predictors)[2]
+  output_dim <- 1
+  # bayesian dropout model
+
+  model <- model_b(n_train = n_train, input_dim = input_dim, output_dim = output_dim)
 
   history <- model %>% keras::fit(x = xtrain, y = ytrain, epochs = 500, verbose = 0, validation_data = list(xval, yval),
                                   callbacks = list(
-                                    keras::callback_early_stopping(patience = 70, restore_best_weights = T),
+                                    keras::callback_early_stopping(patience = 70, restore_best_weights = F),
                                     keras::callback_reduce_lr_on_plateau(factor = 0.4))
   )
   return( list(model = model, history = history, train_n_val_indexes = indexes, train_indexes = indexes_n_val))
