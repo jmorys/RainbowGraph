@@ -4,7 +4,12 @@
 \alias{create_b_model}
 \title{Create neural network with estimation of uncertainty through dropout}
 \usage{
-create_b_model(combined_frame, output = "surv", transformation = NULL)
+create_b_model(
+  combined_frame,
+  output = "surv",
+  transformation = NULL,
+  model = NULL
+)
 }
 \arguments{
 \item{output}{predicted value, one of "surv", "pseudo_eras", "expan"}

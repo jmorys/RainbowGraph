@@ -1,144 +1,112 @@
 # following https://blogs.rstudio.com/ai/posts/2018-11-12-uncertainty_estimates_dropout/
-# R6 wrapper class, a subclass of KerasWrapper
 
 
-#' R6 Class Representing a Person
+
+
+layer_concrete_dropout <- keras::Layer(
+  "Layer_Concrete_Dropout",
+#' Layer wrapper with concrete dropout
 #'
-#' @description
-#' constant dropout
+#' @param layer layer around which wrapper is built
+#' @param weight_regularizer importance of weight regularizer in final loss - float
+#' @param dropout_regularizer importance of dropout regularizer in final loss - float
+#' @param init_min minimum value of dropout probability
+#' @param init_max maximum value of dropout probability
+#' @param is_mc_dropout boolean
+#' @param supports_masking boolean
 #'
-#' @details
-#' Key dropout layer for network with uncertainty estimation
+#' @return custom layer
 #' @export
-ConcreteDropout <- R6::R6Class("ConcreteDropout",
+  initialize = function(layer,
+                        weight_regularizer = 1e-6,
+                        dropout_regularizer = 1e-6,
+                        init_min = 0.1,
+                        init_max = 0.02,
+                        is_mc_dropout = T,
+                        supports_masking = TRUE
+  ) {
+    super$initialize()
+    self$lay <- layer
 
-                               inherit = keras::KerasWrapper,
 
-                               public = list(
-                                 #' @field weight_regularizer scalar
-                                 weight_regularizer = NULL,
-                                 #' @field dropout_regularizer scalar
-                                 dropout_regularizer = NULL,
-                                 #' @field init_min scalar
-                                 init_min = NULL,
-                                 #' @field init_max scalar
-                                 init_max = NULL,
-                                 #' @field is_mc_dropout bool
-                                 is_mc_dropout = NULL,
-                                 #' @field supports_masking bool
-                                 supports_masking = TRUE,
-                                 #' @field p_logit field
-                                 p_logit = NULL,
-                                 #' @field p field
-                                 p = NULL,
+    self$weight_regularizer <- weight_regularizer
+    self$dropout_regularizer <- dropout_regularizer
+    self$is_mc_dropout <- is_mc_dropout
+    self$init_min <- keras::k_log(init_min) - keras::k_log(1 - init_min)
+    self$init_max <- keras::k_log(init_max) - keras::k_log(1 - init_max)
 
-                                 #' @description
-                                 #' Create a new dropout layer
-                                 #'
-                                 #' @param weight_regularizer weight_regularizer
-                                 #' @param init_min init_min
-                                 #' @param init_max init_max
-                                 #' @param is_mc_dropout is_mc_dropout
-                                 #' @param dropout_regularizer dropout_regularizer
-                                 #'
-                                 #' @return
-                                 initialize = function(weight_regularizer,
-                                                       dropout_regularizer,
-                                                       init_min,
-                                                       init_max,
-                                                       is_mc_dropout) {
-                                   self$weight_regularizer <- weight_regularizer
-                                   self$dropout_regularizer <- dropout_regularizer
-                                   self$is_mc_dropout <- is_mc_dropout
-                                   self$init_min <- keras::k_log(init_min) - keras::k_log(1 - init_min)
-                                   self$init_max <- keras::k_log(init_max) - keras::k_log(1 - init_max)
-                                 },
 
-                                 #' @description
-                                 #' Build a new dropout layer
-                                 #'
-                                 #' @param input_shape input_shape
-                                 #'
-                                 #' @return
-                                 build = function(input_shape) {
-                                   super$build(input_shape)
+  },
 
-                                   self$p_logit <- super$add_weight(
-                                     name = "p_logit",
-                                     shape = keras::shape(1),
-                                     initializer = keras::initializer_random_uniform(self$init_min, self$init_max),
-                                     trainable = TRUE
-                                   )
 
-                                   self$p <- keras::k_sigmoid(self$p_logit)
 
-                                   input_dim <- input_shape[[2]]
+  build = function(input_shape) {
+    self$p_logit <- super$add_weight(
+      name = "p_logit",
+      shape = keras::shape(1),
+      initializer = keras::initializer_random_uniform(self$init_min, self$init_max),
+      trainable = TRUE
+    )
 
-                                   weight <- private$py_wrapper$layer$kernel
 
-                                   kernel_regularizer <- self$weight_regularizer *
-                                     keras::k_sum(keras::k_square(weight)) /
-                                     (1 - self$p)
+    if (!self$lay$built) {
+      self$lay$build(input_shape)
+      self$lay$built <- T
+    }
 
-                                   dropout_regularizer <- self$p * keras::k_log(self$p)
-                                   dropout_regularizer <- dropout_regularizer +
-                                     (1 - self$p) * keras::k_log(1 - self$p)
-                                   dropout_regularizer <- dropout_regularizer *
-                                     self$dropout_regularizer *
-                                     keras::k_cast(input_dim, keras::k_floatx())
+  },
 
-                                   regularizer <- keras::k_sum(kernel_regularizer + dropout_regularizer)
-                                   super$add_loss(regularizer)
-                                 },
+  upp_weights = function(input_shape){
+    self$p <- keras::k_sigmoid(self$p_logit)
 
-                                 #' @description
-                                 #' Perform dropout
-                                 #'
-                                 #' @param x input tensor
-                                 #'
-                                 #' @return output tensor
-                                 concrete_dropout = function(x) {
-                                   eps <- keras::k_cast_to_floatx(keras::k_epsilon())
-                                   temp <- 0.1
+    input_dim <- input_shape[[2]]
 
-                                   unif_noise <- keras::k_random_uniform(shape = keras::k_shape(x))
 
-                                   drop_prob <- keras::k_log(self$p + eps) -
-                                     keras::k_log(1 - self$p + eps) +
-                                     keras::k_log(unif_noise + eps) -
-                                     keras::k_log(1 - unif_noise + eps)
-                                   drop_prob <- keras::k_sigmoid(drop_prob / temp)
+    weight <- self$lay$variables[[1]]
+    kernel_regularizer <- self$weight_regularizer *
+      keras::k_sum(keras::k_square(weight)) /
+      (1 - self$p)
 
-                                   random_tensor <- 1 - drop_prob
 
-                                   retain_prob <- 1 - self$p
-                                   x <- x * random_tensor
-                                   x <- x / retain_prob
-                                   x
-                                 },
+    dropout_regularizer <- self$p * keras::k_log(self$p)
+    dropout_regularizer <- dropout_regularizer +
+      (1 - self$p) * keras::k_log(1 - self$p)
+    dropout_regularizer <- dropout_regularizer *
+      self$dropout_regularizer *
+      keras::k_cast(input_dim, keras::k_floatx())
 
-                                 #' @description
-                                 #' Call object
-                                 #'
-                                 #' @param x input tensor
-                                 #' @param mask mask
-                                 #' @param training bool
-                                 #'
-                                 #' @return
-                                 call = function(x, mask = NULL, training = NULL) {
-                                   if (self$is_mc_dropout) {
-                                     super$call(self$concrete_dropout(x))
-                                   } else {
-                                     keras::k_in_train_phase(
-                                       function()
-                                         super$call(self$concrete_dropout(x)),
-                                       super$call(x),
-                                       training = training
-                                     )
-                                   }
-                                 }
-                               )
-                               )
+    keras::k_sum(kernel_regularizer + dropout_regularizer)
+  },
+
+
+  concrete_dropout = function(x) {
+    eps <- keras::k_cast_to_floatx(keras::k_epsilon())
+    temp <- 0.1
+
+    unif_noise <- keras::k_random_uniform(shape = keras::k_shape(x))
+
+    drop_prob <- keras::k_log(self$p + eps) -
+      keras::k_log(1 - self$p + eps) +
+      keras::k_log(unif_noise + eps) -
+      keras::k_log(1 - unif_noise + eps)
+    drop_prob <- keras::k_sigmoid(drop_prob / temp)
+    random_tensor <- 1 - drop_prob
+
+    retain_prob <- 1 - self$p
+
+    x <- x * random_tensor
+    x <- x / retain_prob
+    x
+  },
+
+
+
+  call = function(inputs, mask = NULL, training = NULL) {
+    reg <- self$upp_weights(inputs$shape)
+    self$add_loss(reg)
+    self$lay$call(self$concrete_dropout(inputs))
+  }
+)
 
 
 
@@ -251,59 +219,27 @@ as_metrics_df = function(history) {
 
 
 
-# function for instantiating custom wrapper
-#' Title
-#'
-#' @param object object
-#' @param layer layer
-#' @param weight_regularizer weight_regularizer
-#' @param dropout_regularizer dropout_regularizer
-#' @param init_min init_min
-#' @param init_max init_max
-#' @param is_mc_dropout is_mc_dropout
-#' @param name name
-#' @param trainable bool
-#'
-#' @export
-#'
-layer_concrete_dropout <- function(object,
-                                   layer,
-                                   weight_regularizer = 1e-6,
-                                   dropout_regularizer = 1e-5,
-                                   init_min = 0.1,
-                                   init_max = 0.1,
-                                   is_mc_dropout = TRUE,
-                                   name = NULL,
-                                   trainable = TRUE) {
-  keras::create_wrapper(ConcreteDropout, object, list(
-    layer = layer,
-    weight_regularizer = weight_regularizer,
-    dropout_regularizer = dropout_regularizer,
-    init_min = init_min,
-    init_max = init_max,
-    is_mc_dropout = is_mc_dropout,
-    name = name,
-    trainable = trainable
-  ))
-}
-
 
 
 
 
 #' Create model
 #'
-#' @param n_train
-#' @param input_dim
+#' @param n_train number of training samples
+#' @param input_dim dimensionality of input
+#' @param output_dim dimensionality of output
+#' @param l prior length-scale
 #'
 #' @return
 #' @export
 #'
-model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1){
 
+model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1, l = 1e-2){
 
-  # prior length-scale
-  l <- 1e-2
+  leaky_relu <- function(x){
+    activation_relu(x, alpha = 0.1)
+  }
+
   # initial value for weight regularizer
   wd <- l^2/n_train
   # initial value for dropout regularizer
@@ -311,29 +247,35 @@ model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1){
   # bayesian dropout model
   input <- keras::layer_input(shape = input_dim)
   output <- input %>% layer_concrete_dropout(
-    layer = keras::layer_dense(units = 512, activation = "linear"),
+    layer = keras::layer_dense(units = 512, activation = leaky_relu ,
+                               kernel_constraint = constraint_maxnorm(max_value = 1)),
     weight_regularizer = wd,
     dropout_regularizer = dd
   ) %>% layer_concrete_dropout(
-    layer = keras::layer_dense(units = 256, activation = "sigmoid"),
+    layer = keras::layer_dense(units = 256, activation = leaky_relu ,
+                               kernel_constraint = constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   ) %>% layer_concrete_dropout(
-    layer = keras::layer_dense(units = 256, activation = "sigmoid"),
+    layer = keras::layer_dense(units = 256, activation = leaky_relu ,
+                               kernel_constraint = constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   ) %>% layer_concrete_dropout(
-    layer = keras::layer_dense(units = 256, activation = "sigmoid"),
+    layer = keras::layer_dense(units = 256, activation = "elu" ,
+                               kernel_constraint = constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   )
   mean <- output %>% layer_concrete_dropout(
-    layer = keras::layer_dense(units = output_dim),
+    layer = keras::layer_dense(units = output_dim ,
+                               kernel_constraint = constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   )
   log_var <- output %>% layer_concrete_dropout(
-    keras::layer_dense(units = output_dim),
+    keras::layer_dense(units = output_dim ,
+                       kernel_constraint = constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   )
@@ -348,10 +290,17 @@ model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1){
     keras::k_sum(precision * (y_true - mean) ^ 2 + log_var, axis = 2)
   }
 
+
+  spec_mse <- function(y_true, y_pred) {
+    mean <- y_pred[, 1:output_dim]
+
+    keras::k_log(keras::k_mean((y_true - mean) ^ 2))/2.303
+  }
+
   model %>% keras::compile(
     optimizer = "adam",
     loss = heteroscedastic_loss,
-    metrics = c(keras::custom_metric("heteroscedastic_loss", heteroscedastic_loss))
+    metrics = c(keras::custom_metric("spec_mse", spec_mse))
   )
   model
 }
@@ -370,7 +319,8 @@ model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1){
 #'
 #' @export
 #'
-create_b_model <- function(combined_frame, output = "surv", transformation = NULL) {
+
+create_b_model <- function(combined_frame, output = "surv", transformation = NULL, model = NULL) {
   indexes = sample(1:dim(combined_frame)[1], size = round(dim(combined_frame)[1]*0.85))
   predictors <- as.data.frame(combined_frame %>% dplyr::select(-surv, -pseudo_eras, -expan))
   predictors <- as.matrix(predictors)
@@ -402,16 +352,52 @@ create_b_model <- function(combined_frame, output = "surv", transformation = NUL
   input_dim <- dim(predictors)[2]
   output_dim <- 1
   # bayesian dropout model
+  if (is.null(model)) {
+    model <- model_b(n_train = n_train, input_dim = input_dim, output_dim = output_dim)
+  }
 
-  model <- model_b(n_train = n_train, input_dim = input_dim, output_dim = output_dim)
+  drop_track <- DropTracker$new()
 
   history <- model %>% keras::fit(x = xtrain, y = ytrain, epochs = 500, verbose = 0, validation_data = list(xval, yval),
                                   callbacks = list(
-                                    keras::callback_early_stopping(patience = 70, restore_best_weights = F),
-                                    keras::callback_reduce_lr_on_plateau(factor = 0.4))
+                                    keras::callback_early_stopping(patience = 70, restore_best_weights = T),
+                                    keras::callback_reduce_lr_on_plateau(factor = 0.5, patience = 10),
+                                    drop_track)
   )
+
+  ps <- drop_track$ps %>% as_tibble() %>% select_if(function(x){sum(is.na(x)) == 0}) %>%
+    rename_with(~gsub("V", "layer", .x)) %>% tibble::rowid_to_column("epoch")
+  print(ps)
+  ps <- ps %>% pivot_longer(cols = starts_with("layer"))
+
+  history$ps <- ps
   return( list(model = model, history = history, train_n_val_indexes = indexes, train_indexes = indexes_n_val))
 }
+
+
+
+
+DropTracker <- R6::R6Class("LossHistory",
+                           inherit = KerasCallback,
+
+                           public = list(
+
+                             ps  = NULL,
+
+                             on_epoch_end = function(epoch, logs = list()) {
+                               vector <- sapply(self$model$layers, FUN = function(x){
+                                 v <- try(x$p_logit, silent = T)
+                                 if (sum(class(v) == "try-error") == 1) {
+                                   return(NA)
+                                 }else{
+                                   return(as.numeric(k_sigmoid(v)))
+                                 }
+                               })
+
+                               self$ps <- rbind(self$ps, vector)
+                             }
+                           ))
+
 
 
 
@@ -428,21 +414,26 @@ create_b_model <- function(combined_frame, output = "surv", transformation = NUL
 #' @export
 evaluate_b_model <- function(combined_frame, c_model_res, output = "surv", transformation = NULL){
   # traing history (loss is heteroscedastic loss, (repetition))
-  history <- as_metrics_df(c_model_res$history)
-  history$epoch <- 1:dim(history)[1]
-  history <- history %>% tidyr::pivot_longer(cols = !epoch, names_to = "names")
-  history <- history %>% dplyr::mutate(validation = grepl(names, pattern =  "val"),
+  metrics <- as_tibble(b_model$history$metrics)
+  metrics$epoch <- 1:dim(metrics)[1]
+  metrics <- metrics %>% tidyr::pivot_longer(cols = !epoch, names_to = "names")
+  metrics <- metrics %>% dplyr::mutate(validation = grepl(names, pattern =  "val"),
                                        names = gsub(names, pattern =  "val_", replacement =  ""))
 
-  history_plot <- history %>% ggplot2::ggplot(ggplot2::aes(epoch, value, col = validation)) + ggplot2::geom_line(size = 1) +
+  history_plot <- metrics %>% ggplot2::ggplot(ggplot2::aes(epoch, value, col = validation)) +
+    ggplot2::geom_line(size = 1) +
     ggplot2::facet_grid(names~., scales = "free_y")
+
+  dropout_freq_plot <- ggplot(data = b_model$history$ps, aes(epoch, value, color = name)) +
+    geom_line(size = 1) + scale_y_log10()
+
 
 
   predictors <- as.data.frame(combined_frame %>% dplyr::select(-surv, -pseudo_eras, -expan))
   predictors <- as.matrix(predictors)
 
 
-  num_MC_samples <- 60
+  num_MC_samples <- 100
   train_index <- 1:dim(combined_frame)[1] %in% c_model_res$train_n_val_indexes[c_model_res$train_indexes]
 
   MC_samples <- array(0, dim = c(num_MC_samples, length(train_index), 2 * 1))
@@ -490,12 +481,14 @@ evaluate_b_model <- function(combined_frame, c_model_res, output = "surv", trans
 
   # plot of total uncertainty ~ predicted value
   uncertainty_plot <- plot_d %>%
-    ggplot2::ggplot(ggplot2::aes(simulated, total_uncertainty )) + ggplot2::geom_point(ggplot2::aes(col = group) ,alpha = 0.25, shape = 16 ) +
-    ggplot2::geom_smooth(ggplot2::aes(group = as.factor(group))) + ggplot2::labs(color = "Used for\ntraining")
+    ggplot2::ggplot(ggplot2::aes(simulated, total_uncertainty )) +
+    ggplot2::geom_point(ggplot2::aes(col = group) ,alpha = 0.25, shape = 16 ) +
+    ggplot2::geom_smooth(ggplot2::aes(group = as.factor(group))) + ggplot2::labs(color = "Used for\ntraining") +
+    ggplot2::ylim(c(0,NA))
 
   return(list(metrics = metrics, predictions = plot_d,
               regression_plot = reg_plot, error_plot = error_plot, uncertainty_plot = uncertainty_plot,
-              history_plot = history_plot))
+              history_plot = history_plot, drop_plot = dropout_freq_plot))
 }
 
 

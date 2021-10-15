@@ -2,39 +2,37 @@
 % Please edit documentation in R/model.R
 \name{layer_concrete_dropout}
 \alias{layer_concrete_dropout}
-\title{Title}
+\title{Layer wrapper with concrete dropout}
 \usage{
 layer_concrete_dropout(
   object,
   layer,
   weight_regularizer = 1e-06,
-  dropout_regularizer = 1e-05,
+  dropout_regularizer = 1e-06,
   init_min = 0.1,
-  init_max = 0.1,
-  is_mc_dropout = TRUE,
-  name = NULL,
-  trainable = TRUE
+  init_max = 0.02,
+  is_mc_dropout = T,
+  supports_masking = TRUE
 )
 }
 \arguments{
-\item{object}{object}
+\item{layer}{layer around which wrapper is built}
 
-\item{layer}{layer}
+\item{weight_regularizer}{importance of weight regularizer in final loss - float}
 
-\item{weight_regularizer}{weight_regularizer}
+\item{dropout_regularizer}{importance of dropout regularizer in final loss - float}
 
-\item{dropout_regularizer}{dropout_regularizer}
+\item{init_min}{minimum value of dropout probability}
 
-\item{init_min}{init_min}
+\item{init_max}{maximum value of dropout probability}
 
-\item{init_max}{init_max}
+\item{is_mc_dropout}{boolean}
 
-\item{is_mc_dropout}{is_mc_dropout}
-
-\item{name}{name}
-
-\item{trainable}{bool}
+\item{supports_masking}{boolean}
+}
+\value{
+custom layer
 }
 \description{
-Title
+Layer wrapper with concrete dropout
 }

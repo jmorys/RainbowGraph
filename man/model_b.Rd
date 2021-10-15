@@ -4,10 +4,16 @@
 \alias{model_b}
 \title{Create model}
 \usage{
-model_b(n_train = 3000, input_dim = 20, output_dim = 1)
+model_b(n_train = 3000, input_dim = 20, output_dim = 1, l = 0.01)
 }
 \arguments{
-\item{input_dim}{}
+\item{n_train}{number of training samples}
+
+\item{input_dim}{dimensionality of input}
+
+\item{output_dim}{dimensionality of output}
+
+\item{l}{prior length-scale}
 }
 \value{
 
