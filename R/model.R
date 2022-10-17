@@ -365,10 +365,10 @@ create_b_model <- function(combined_frame, output = "surv", transformation = NUL
                                     drop_track)
   )
 
-  ps <- drop_track$ps %>% as_tibble() %>% select_if(function(x){sum(is.na(x)) == 0}) %>%
-    rename_with(~gsub("V", "layer", .x)) %>% tibble::rowid_to_column("epoch")
+  ps <- drop_track$ps %>% dplyr::as_tibble() %>% dplyr::select_if(function(x){sum(is.na(x)) == 0}) %>%
+    dplyr::rename_with(~gsub("V", "layer", .x)) %>% tibble::rowid_to_column("epoch")
   print(ps)
-  ps <- ps %>% pivot_longer(cols = starts_with("layer"))
+  ps <- ps %>% tidyr::pivot_longer(cols = dplyr::starts_with("layer"))
 
   history$ps <- ps
   return( list(model = model, history = history, train_n_val_indexes = indexes, train_indexes = indexes_n_val))
@@ -390,7 +390,7 @@ DropTracker <- R6::R6Class("LossHistory",
                                  if (sum(class(v) == "try-error") == 1) {
                                    return(NA)
                                  }else{
-                                   return(as.numeric(k_sigmoid(v)))
+                                   return(as.numeric(keras::k_sigmoid(v)))
                                  }
                                })
 
@@ -414,7 +414,7 @@ DropTracker <- R6::R6Class("LossHistory",
 #' @export
 evaluate_b_model <- function(combined_frame, c_model_res, output = "surv", transformation = NULL){
   # traing history (loss is heteroscedastic loss, (repetition))
-  metrics <- as_tibble(b_model$history$metrics)
+  metrics <- dplyr::as_tibble(c_model_res$history$metrics)
   metrics$epoch <- 1:dim(metrics)[1]
   metrics <- metrics %>% tidyr::pivot_longer(cols = !epoch, names_to = "names")
   metrics <- metrics %>% dplyr::mutate(validation = grepl(names, pattern =  "val"),
@@ -424,8 +424,8 @@ evaluate_b_model <- function(combined_frame, c_model_res, output = "surv", trans
     ggplot2::geom_line(size = 1) +
     ggplot2::facet_grid(names~., scales = "free_y")
 
-  dropout_freq_plot <- ggplot(data = b_model$history$ps, aes(epoch, value, color = name)) +
-    geom_line(size = 1) + scale_y_log10()
+  dropout_freq_plot <- ggplot2::ggplot(data = c_model_res$history$ps, ggplot2::aes(epoch, value, color = name)) +
+    ggplot2::geom_line(size = 1) + ggplot2::scale_y_log10()
 
 
 
@@ -587,7 +587,7 @@ get_complete_results_bayes <- function(graph, survival_intervals = c(0.5, 1), re
 
 
     # create , evaluate and use ML model
-    model_surv_bayes <- reticulate::py_suppress_warnings( # each call raises multiple warnings about missing gradients
+    model_surv_bayes <- reticulate::py_suppress_warnings( # each call raises multiple warnings about missing gradients for no reason
       create_b_model(surv_data$combined_frame)
       )
     eval_surv <- evaluate_b_model(surv_data$combined_frame, model_surv_bayes)
