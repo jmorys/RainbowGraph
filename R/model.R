@@ -378,7 +378,7 @@ create_b_model <- function(combined_frame, output = "surv", transformation = NUL
 
 
 DropTracker <- R6::R6Class("LossHistory",
-                           inherit = KerasCallback,
+                           inherit = keras::KerasCallback,
 
                            public = list(
 
