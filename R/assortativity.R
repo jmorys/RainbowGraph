@@ -43,7 +43,7 @@ assortativity_weighted <- function(graph, val) {
 #'
 #' @examples
 assortativity_local_par <- function(graph, val, alpha = 0.2){
-  cl = parallel::makeCluster(7)
+  cl = parallel::makeCluster(parallel::detectCores(logical = FALSE)-1)
   on.exit(parallel::stopCluster(cl))
   graph_l <- igraph::vcount(graph)
   proceed <- graph_l == length(val)
@@ -79,7 +79,7 @@ assortativity_local_par <- compiler::cmpfun(assortativity_local_par)
 
 
 fast_assorts_p_1 <- function(graph, alpha = 0.4){
-  cl = parallel::makeCluster(7)
+  cl = parallel::makeCluster(parallel::detectCores(logical = FALSE)-1)
   on.exit(parallel::stopCluster(cl))
   graph_l <- igraph::vcount(graph)
   e2 <- igraph::get.edgelist(graph, names = F)

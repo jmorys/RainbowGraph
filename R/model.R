@@ -248,34 +248,34 @@ model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1, l = 1e-2){
   input <- keras::layer_input(shape = input_dim)
   output <- input %>% layer_concrete_dropout(
     layer = keras::layer_dense(units = 512, activation = leaky_relu ,
-                               kernel_constraint = constraint_maxnorm(max_value = 1)),
+                               kernel_constraint = keras::constraint_maxnorm(max_value = 1)),
     weight_regularizer = wd,
     dropout_regularizer = dd
   ) %>% layer_concrete_dropout(
     layer = keras::layer_dense(units = 256, activation = leaky_relu ,
-                               kernel_constraint = constraint_maxnorm()),
+                               kernel_constraint = keras::constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   ) %>% layer_concrete_dropout(
     layer = keras::layer_dense(units = 256, activation = leaky_relu ,
-                               kernel_constraint = constraint_maxnorm()),
+                               kernel_constraint = keras::constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   ) %>% layer_concrete_dropout(
     layer = keras::layer_dense(units = 256, activation = "elu" ,
-                               kernel_constraint = constraint_maxnorm()),
+                               kernel_constraint = keras::constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   )
   mean <- output %>% layer_concrete_dropout(
     layer = keras::layer_dense(units = output_dim ,
-                               kernel_constraint = constraint_maxnorm()),
+                               kernel_constraint = keras::constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   )
   log_var <- output %>% layer_concrete_dropout(
     keras::layer_dense(units = output_dim ,
-                       kernel_constraint = constraint_maxnorm()),
+                       kernel_constraint = keras::constraint_maxnorm()),
     weight_regularizer = wd,
     dropout_regularizer = dd
   )
