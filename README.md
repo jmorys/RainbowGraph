@@ -1,10 +1,10 @@
 # RainbowGraph
 Estimate underlying regeneration characteristics in rainbow Cre loxP lineage tracing using.
 Given a dataset representing a tissue as a network of cells with given colours, predict what fraction of observed cells were present during Cre activation and how many among them were proliferating.
-Package contains tools for:
--efficiently simulating proliferation/regeneration in a given cell network 
--training a machine learning model on the simulated data
--using the trained model to predict characteristics of the original data
+Package contains tools for:  
+-efficiently simulating proliferation/regeneration in a given cell network  
+-training a machine learning model on the simulated data  
+-using the trained model to predict characteristics of the original data  
 
 
 ``` r
