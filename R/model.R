@@ -237,7 +237,7 @@ as_metrics_df = function(history) {
 model_b <-  function(n_train = 3000, input_dim = 20, output_dim = 1, l = 1e-2){
 
   leaky_relu <- function(x){
-    activation_relu(x, alpha = 0.1)
+    keras::activation_relu(x, alpha = 0.1)
   }
 
   # initial value for weight regularizer
